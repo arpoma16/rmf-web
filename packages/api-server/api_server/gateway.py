@@ -175,7 +175,7 @@ class RmfGateway:
                 self._rmf_events.door_states.on_next(door_state)
                 logging.debug("%s", door_state)
 
-            self._loop.create_task(save(DoorState.model_validate(msg)))
+            self._loop.call_soon_threadsafe(self._loop.create_task,save(DoorState.model_validate(msg)))
 
         door_states_sub = self._ros_node.create_subscription(
             RmfDoorState,
@@ -192,7 +192,7 @@ class RmfGateway:
                 logging.debug("%s", lift_state)
 
             dic = message_to_ordereddict(msg)
-            self._loop.create_task(save(LiftState(**dic)))
+            self._loop.call_soon_threadsafe(self._loop.create_task,save(LiftState(**dic)))
 
         lift_states_sub = self._ros_node.create_subscription(
             RmfLiftState,
@@ -208,7 +208,7 @@ class RmfGateway:
                 self._rmf_events.dispenser_states.on_next(dispenser_state)
                 logging.debug("%s", dispenser_state)
 
-            self._loop.create_task(save(DispenserState.model_validate(msg)))
+            self._loop.call_soon_threadsafe(self._loop.create_task,save(DispenserState.model_validate(msg)))
 
         dispenser_states_sub = self._ros_node.create_subscription(
             RmfDispenserState,
@@ -224,7 +224,7 @@ class RmfGateway:
                 self._rmf_events.ingestor_states.on_next(ingestor_state)
                 logging.debug("%s", ingestor_state)
 
-            self._loop.create_task(save(IngestorState.model_validate(msg)))
+            self._loop.call_soon_threadsafe(self._loop.create_task,save(IngestorState.model_validate(msg)))
 
         ingestor_states_sub = self._ros_node.create_subscription(
             RmfIngestorState,
@@ -241,7 +241,7 @@ class RmfGateway:
                 logging.debug("%s", building_map)
 
             bm = self._process_building_map(cast(RmfBuildingMap, msg))
-            self._loop.create_task(save(bm))
+            self._loop.call_soon_threadsafe(self._loop.create_task,save(bm))
 
         map_sub = self._ros_node.create_subscription(
             RmfBuildingMap,
@@ -270,7 +270,7 @@ class RmfGateway:
                 activated=msg.activated,
                 level=msg.level,
             )
-            self._loop.create_task(save(bs))
+            self._loop.call_soon_threadsafe(self._loop.create_task,save(bs))
 
         beacon_sub = self._ros_node.create_subscription(
             RmfBeaconState,
