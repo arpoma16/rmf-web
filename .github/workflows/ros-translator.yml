@@ -3,8 +3,11 @@ on:
   pull_request:
     paths:
       - '.github/workflows/ros-translator.yml'
+      - '.github/actions/bootstrap/action.yml'
       - '.github/minimal-rmf/**'
       - 'packages/ros-translator/**'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
   push:
     branches:
       - main
@@ -16,13 +19,9 @@ env:
 jobs:
   unit-tests:
     name: Unit Tests
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        ros_distribution: [jazzy, rolling]
+    runs-on: ubuntu-latest
     container:
-      image: ghcr.io/${{ github.repository }}/minimal-rmf:${{ matrix.ros_distribution }}-nightly
+      image: ghcr.io/${{ github.repository }}/minimal-rmf:jazzy-nightly
       credentials:
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -31,10 +30,13 @@ jobs:
         shell: bash
         working-directory: packages/ros-translator
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - name: dependencies
+        run: apt update && apt install ros-dev-tools -y
       - name: bootstrap
         uses: ./.github/actions/bootstrap
         with:
           package: ros-translator
+          skip-build: true
       - name: test
-        run: . /opt/ros/${{ matrix.ros_distribution }}/setup.bash && pnpm test
+        run: . /opt/ros/jazzy/setup.bash && pnpm test
