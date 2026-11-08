@@ -1,4 +1,4 @@
-import { Box, Button, SxProps, Typography, useTheme } from '@mui/material';
+import { Box, Button } from '@mui/material';
 import {
   DataGrid,
   GridCellParams,
@@ -12,6 +12,7 @@ import { DoorMode, DoorState } from 'api-client';
 import React from 'react';
 import { DoorMode as RmfDoorMode } from 'rmf-models/ros/rmf_door_msgs/msg';
 
+import { StatusChip, StatusTone } from '../status-chip';
 import { doorModeToString, doorTypeToString } from './door-utils';
 
 export function doorModeToOpModeString(mode: DoorMode): string {
@@ -40,47 +41,28 @@ export interface DoorDataGridTableProps {
 }
 
 export function DoorDataGridTable({ doors, onDoorClick }: DoorDataGridTableProps): JSX.Element {
-  const theme = useTheme();
-
   const OpModeState = (params: GridCellParams): React.ReactNode => {
-    const opModeStateLabelStyle: SxProps = (() => {
-      const unknown = {
-        color: theme.palette.action.disabledBackground,
-      };
-      const online = {
-        color: theme.palette.success.main,
-      };
-      const offline = {
-        color: theme.palette.error.main,
-      };
-
+    const tone: StatusTone = (() => {
       if (!params.row.doorState) {
-        return unknown;
+        return 'neutral';
       }
 
       switch (params.row.doorState.current_mode.value) {
         case RmfDoorMode.MODE_OFFLINE:
-          return offline;
+          return 'error';
         case RmfDoorMode.MODE_UNKNOWN:
-          return unknown;
+          return 'neutral';
         default:
-          return online;
+          return 'success';
       }
     })();
 
     return (
-      <Box sx={opModeStateLabelStyle}>
-        <Typography
-          data-testid="op-mode-state"
-          component="p"
-          sx={{
-            fontWeight: 'bold',
-            fontSize: 14,
-          }}
-        >
-          {doorModeToOpModeString(params.row.doorState.current_mode)}
-        </Typography>
-      </Box>
+      <StatusChip
+        data-testid="op-mode-state"
+        tone={tone}
+        label={doorModeToOpModeString(params.row.doorState.current_mode)}
+      />
     );
   };
 
@@ -94,58 +76,39 @@ export function DoorDataGridTable({ doors, onDoorClick }: DoorDataGridTableProps
   };
 
   const DoorState = (params: GridCellParams): React.ReactNode => {
-    const labelStyle: SxProps = React.useMemo<SxProps>(() => {
-      const disabled = {
-        color: theme.palette.action.disabledBackground,
-      };
-      const open = {
-        color: theme.palette.success.main,
-      };
-      const closed = {
-        color: theme.palette.error.main,
-      };
-      const moving = {
-        color: theme.palette.warning.main,
-      };
-
+    const tone = React.useMemo<StatusTone>(() => {
       switch (params.row.doorState.current_mode.value) {
         case RmfDoorMode.MODE_OPEN:
-          return open;
+          return 'success';
         case RmfDoorMode.MODE_CLOSED:
-          return closed;
+          return 'error';
         case RmfDoorMode.MODE_MOVING:
-          return moving;
+          return 'warning';
         default:
-          return disabled;
+          return 'neutral';
       }
     }, [params.row.doorState.current_mode.value]);
 
     return (
-      <Box sx={labelStyle}>
-        <Typography
-          data-testid="door-state"
-          component="p"
-          sx={{
-            fontWeight: 'bold',
-            fontSize: 16,
-          }}
-        >
-          {params.row.doorState ? doorModeToString(params.row.doorState.current_mode.value) : -1}
-        </Typography>
-      </Box>
+      <StatusChip
+        data-testid="door-state"
+        tone={tone}
+        label={
+          params.row.doorState ? doorModeToString(params.row.doorState.current_mode.value) : -1
+        }
+      />
     );
   };
 
   const OpenCloseButtons = (params: GridCellParams): React.ReactNode => {
     return (
-      <Box sx={{ margin: 0, padding: 0, paddingRight: 1 }}>
+      <Box sx={{ margin: 0, padding: 0, paddingRight: 1, display: 'flex', gap: 1 }}>
         <Button
           variant="contained"
           size="small"
           aria-label="open"
           sx={{
             minWidth: 'auto',
-            fontSize: 16,
             marginRight: 0,
           }}
           onClick={params.row.onClickOpen}
@@ -153,12 +116,11 @@ export function DoorDataGridTable({ doors, onDoorClick }: DoorDataGridTableProps
           Open
         </Button>
         <Button
-          variant="contained"
+          variant="outlined"
           size="small"
           aria-label="close"
           sx={{
             minWidth: 'auto',
-            fontSize: 16,
             marginRight: 0,
           }}
           onClick={params.row.onClickClose}
@@ -235,7 +197,7 @@ export function DoorDataGridTable({ doors, onDoorClick }: DoorDataGridTableProps
       getRowId={(l) => l.index}
       rows={doors}
       pageSize={5}
-      rowHeight={38}
+      rowHeight={56}
       columns={columns}
       rowsPerPageOptions={[5]}
       density={'standard'}

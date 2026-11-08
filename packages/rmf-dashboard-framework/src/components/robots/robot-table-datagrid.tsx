@@ -1,4 +1,3 @@
-import { Box, SxProps, Typography, useTheme } from '@mui/material';
 import {
   DataGrid,
   GridCellParams,
@@ -11,6 +10,7 @@ import {
 import { ApiServerModelsRmfApiRobotStateStatus as Status, Commission } from 'api-client';
 import * as React from 'react';
 
+import { StatusChip, StatusTone } from '../status-chip';
 import { robotStatusToUpperCase } from './utils';
 
 export interface RobotTableData {
@@ -43,56 +43,31 @@ export function RobotDataGridTable({ onRobotClick, robots }: RobotDataGridTableP
     const robotDecommissioned =
       params.row.commission && params.row.commission.dispatch_tasks === false;
 
-    const theme = useTheme();
-    const statusLabelStyle: SxProps = (() => {
-      const error = {
-        color: theme.palette.error.main,
-      };
-      const charging = {
-        color: theme.palette.info.main,
-      };
-      const working = {
-        color: theme.palette.success.main,
-      };
-      const disabled = {
-        color: theme.palette.action.disabled,
-      };
-      const defaultColor = {
-        color: theme.palette.warning.main,
-      };
-
+    const tone: StatusTone = (() => {
       if (robotDecommissioned) {
-        return disabled;
+        return 'neutral';
       }
 
       switch (params.row.status) {
         case Status.Error:
-          return error;
+          return 'error';
         case Status.Offline:
         case Status.Uninitialized:
-          return disabled;
-        case Status.Charging:
-          return charging;
+          return 'neutral';
         case Status.Working:
-          return working;
+          return 'success';
         default:
-          return defaultColor;
+          // idle, charging and any other state
+          return 'warning';
       }
     })();
 
     return (
-      <Box sx={statusLabelStyle}>
-        <Typography
-          data-testid="status"
-          component="p"
-          sx={{
-            fontWeight: 'bold',
-            fontSize: 16,
-          }}
-        >
-          {robotDecommissioned ? 'DECOMMISSIONED' : robotStatusToUpperCase(params.row.status)}
-        </Typography>
-      </Box>
+      <StatusChip
+        data-testid="status"
+        tone={tone}
+        label={robotDecommissioned ? 'DECOMMISSIONED' : robotStatusToUpperCase(params.row.status)}
+      />
     );
   };
 
@@ -167,7 +142,7 @@ export function RobotDataGridTable({ onRobotClick, robots }: RobotDataGridTableP
       getRowId={(r) => r.name}
       rows={robots}
       pageSize={5}
-      rowHeight={38}
+      rowHeight={48}
       columns={columns}
       rowsPerPageOptions={[5]}
       density={'standard'}

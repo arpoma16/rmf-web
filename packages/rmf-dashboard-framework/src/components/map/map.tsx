@@ -1,4 +1,4 @@
-import { Box, styled, Typography } from '@mui/material';
+import { Box, styled, Typography, useTheme } from '@mui/material';
 import { Line } from '@react-three/drei';
 import { Canvas, useLoader } from '@react-three/fiber';
 import { AlertRequest, BuildingMap, FleetState, Level, Lift } from 'api-client';
@@ -55,6 +55,7 @@ export interface MapProps {
 }
 
 export const Map = styled((props: MapProps) => {
+  const theme = useTheme();
   const authenticator = useAuthenticator();
   const { fleets: fleetResources } = useResources();
   const rmfApi = useRmfApi();
@@ -542,6 +543,11 @@ export const Map = styled((props: MapProps) => {
           camera.updateProjectionMatrix();
         }}
         orthographic={true}
+        style={
+          theme.palette.mapBackground
+            ? { background: theme.palette.mapBackground, borderRadius: theme.shape.borderRadius }
+            : undefined
+        }
       >
         <CameraControl zoom={zoom} />
         {!disabledLayers['Pickup & Dropoff waypoints'] &&

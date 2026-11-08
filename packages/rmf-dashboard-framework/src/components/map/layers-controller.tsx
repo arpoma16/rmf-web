@@ -20,6 +20,19 @@ import { ChangeEvent } from 'react';
 
 import { AppEvents } from '../app-events';
 
+// Square 44px buttons, stacked, with the secondary ink color of the theme (`palette.info`).
+const mapButtonSx = {
+  width: 44,
+  height: 44,
+  marginTop: 1,
+  borderRadius: '8px',
+  border: 1,
+  borderColor: 'divider',
+  backgroundColor: 'background.paper',
+  color: 'info.main',
+  '&:hover': { backgroundColor: 'background.default' },
+};
+
 interface LayersControllerProps {
   disabledLayers: Record<string, boolean>;
   onChange: (event: ChangeEvent<HTMLInputElement>, value: string) => void;
@@ -77,24 +90,37 @@ export const LayersController = ({
           size="small"
           onClick={handleFullView}
           data-testid="full-view"
-          sx={{ padding: 2 }}
+          aria-label="fit view"
+          sx={mapButtonSx}
         >
-          <FullscreenIcon fontSize="large" />
+          <FullscreenIcon />
         </IconButton>
       </div>
       <div>
-        <IconButton size="small" onClick={handleZoomIn} data-testid="zoom-in" sx={{ padding: 2 }}>
-          <ZoomInIcon fontSize="large" />
+        <IconButton
+          size="small"
+          onClick={handleZoomIn}
+          data-testid="zoom-in"
+          aria-label="zoom in"
+          sx={mapButtonSx}
+        >
+          <ZoomInIcon />
         </IconButton>
       </div>
       <div>
-        <IconButton size="small" onClick={handleZoomOut} data-testid="zoom-out" sx={{ padding: 2 }}>
-          <ZoomOutIcon fontSize="large" />
+        <IconButton
+          size="small"
+          onClick={handleZoomOut}
+          data-testid="zoom-out"
+          aria-label="zoom out"
+          sx={mapButtonSx}
+        >
+          <ZoomOutIcon />
         </IconButton>
       </div>
       <div onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
-        <IconButton size="small" data-testid="layers" sx={{ padding: 2 }}>
-          <LayersIcon fontSize="large" />
+        <IconButton size="small" data-testid="layers" aria-label="layers" sx={mapButtonSx}>
+          <LayersIcon />
         </IconButton>
         {isHovered && (
           <div>

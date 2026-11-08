@@ -23,6 +23,8 @@ import {
 } from 'rmf-dashboard-framework/micro-apps';
 import { StubAuthenticator } from 'rmf-dashboard-framework/services';
 
+import { lynceTheme } from './theme';
+
 const mapApp = createMapApp({
   attributionPrefix: getAppTitle(),
   defaultMapLevel: 'L1',
@@ -69,6 +71,7 @@ export default function App() {
       apiServerUrl="http://localhost:8000"
       trajectoryServerUrl="http://localhost:8006"
       authenticator={new StubAuthenticator()}
+      themes={{ default: lynceTheme }}
       llmChatPanel
       helpLink="https://osrf.github.io/ros2multirobotbook/rmf-core.html"
       reportIssueLink="https://github.com/open-rmf/rmf-web/issues"

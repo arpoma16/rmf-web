@@ -58,7 +58,7 @@ import { ConfirmationDialog } from './confirmation-dialog';
 import { dispatchTask, scheduleTask, TaskForm, TaskFormProps } from './tasks';
 import { DashboardThemes } from './theme';
 
-export const APP_BAR_HEIGHT = '3.5rem';
+export const APP_BAR_HEIGHT = '4rem';
 
 const ToolbarIconButton = React.forwardRef<
   HTMLButtonElement,
@@ -251,10 +251,10 @@ export const AppBar = React.memo(({ tabs, tabValue, themes, extraToolbarItems }:
       <Grid container alignItems="center" justifyContent="space-between" wrap="nowrap">
         <Box display="flex" alignItems="center">
           <Box display="flex" flexDirection="column" justifyContent="center" px={2}>
-            <Typography variant="subtitle1" lineHeight={1.2} noWrap>
+            <Typography className="app-brand-title" variant="subtitle1" lineHeight={1.2} noWrap>
               {getAppTitle()}
             </Typography>
-            <Typography variant="caption" lineHeight={1.2} noWrap>
+            <Typography className="app-brand-subtitle" variant="caption" lineHeight={1.2} noWrap>
               {getAppSubtitle()}
             </Typography>
           </Box>
