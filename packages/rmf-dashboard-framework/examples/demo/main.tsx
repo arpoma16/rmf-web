@@ -5,6 +5,7 @@ import '@fontsource/roboto/700.css';
 
 import ReactDOM from 'react-dom/client';
 import {
+  getAppTitle,
   InitialWindow,
   LocallyPersistentWorkspace,
   MicroAppManifest,
@@ -15,6 +16,7 @@ import {
   createMapApp,
   doorsApp,
   liftsApp,
+  llmChatApp,
   robotMutexGroupsApp,
   robotsApp,
   tasksApp,
@@ -22,7 +24,7 @@ import {
 import { StubAuthenticator } from 'rmf-dashboard-framework/services';
 
 const mapApp = createMapApp({
-  attributionPrefix: 'Open-RMF',
+  attributionPrefix: getAppTitle(),
   defaultMapLevel: 'L1',
   defaultRobotZoom: 20,
   defaultZoom: 6,
@@ -35,6 +37,7 @@ const appRegistry: MicroAppManifest[] = [
   robotsApp,
   robotMutexGroupsApp,
   tasksApp,
+  llmChatApp,
 ];
 
 const homeWorkspace: InitialWindow[] = [
@@ -66,6 +69,7 @@ export default function App() {
       apiServerUrl="http://localhost:8000"
       trajectoryServerUrl="http://localhost:8006"
       authenticator={new StubAuthenticator()}
+      llmChatPanel
       helpLink="https://osrf.github.io/ros2multirobotbook/rmf-core.html"
       reportIssueLink="https://github.com/open-rmf/rmf-web/issues"
       resources={{ fleets: {}, logos: { header: '/resources/defaultLogo.png' } }}

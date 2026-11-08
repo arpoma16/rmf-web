@@ -177,7 +177,7 @@ export function RobotDecommissionButton({
               <Typography color="warning.main">
                 Warning: the robot could immediately be assigned a new task after recommission,
                 please ensure that the robot is fully functional, localized, and its location
-                reflecting accurately on the Open-RMF map before recommissioning.
+                reflecting accurately on the map before recommissioning.
               </Typography>
             </>
           ) : (

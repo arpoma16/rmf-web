@@ -42,6 +42,40 @@ describe('AppBar', () => {
     expect(root.getAllByRole('tablist').length > 0).toBeTruthy();
   });
 
+  it('shows the configured title and subtitle instead of the upstream branding', () => {
+    const root = render(
+      <Base>
+        <AppBar
+          tabs={[<Tab key="test" label="test" value="test" />]}
+          tabValue="test"
+          helpLink=""
+          reportIssueLink=""
+        />
+      </Base>,
+    );
+    expect(root.getByText('Flota LINCE')).toBeTruthy();
+    expect(root.getByText('Monitorización de robots · Indra')).toBeTruthy();
+    expect(root.queryByText(/Open-RMF/)).toBeNull();
+  });
+
+  it('has no help or report issues buttons and the title comes before the tabs', () => {
+    const root = render(
+      <Base>
+        <AppBar
+          tabs={[<Tab key="test" label="test" value="test" />]}
+          tabValue="test"
+          helpLink="https://example.com/help"
+          reportIssueLink="https://example.com/issues"
+        />
+      </Base>,
+    );
+    expect(root.queryByLabelText('help')).toBeNull();
+    expect(root.queryByLabelText('warning')).toBeNull();
+    const title = root.getByText('Flota LINCE');
+    const tabs = root.getByRole('tablist');
+    expect(title.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('user button is shown when there is an authenticated user', () => {
     const root = render(
       <Base>
@@ -77,7 +111,7 @@ describe('AppBar', () => {
     await expect(waitFor(() => expect(spy).toHaveBeenCalledTimes(1))).resolves.not.toThrow();
   });
 
-  it('uses headerLogo from logo resources manager', async () => {
+  it('does not render the upstream logo in the navigation bar', () => {
     const root = render(
       <Base>
         <AppBar
@@ -88,12 +122,6 @@ describe('AppBar', () => {
         />
       </Base>,
     );
-    await expect(
-      waitFor(() => {
-        const q = root.container.querySelector('[src="/test-logo.png"][alt="logo"]');
-        if (!q) throw new Error();
-        return q;
-      }),
-    ).resolves.not.toThrow();
+    expect(root.container.querySelector('img')).toBeNull();
   });
 });

@@ -22,7 +22,7 @@ import {
 import { KeycloakAuthenticator } from 'rmf-dashboard-framework/services';
 
 const mapApp = createMapApp({
-  attributionPrefix: 'Open-RMF',
+  attributionPrefix: 'Flota LINCE',
   defaultMapLevel: 'L1',
   defaultRobotZoom: 20,
   defaultZoom: 6,

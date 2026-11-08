@@ -33,7 +33,7 @@ describe('RmfDashboard', () => {
   };
 
   const mapApp = createMapApp({
-    attributionPrefix: 'Open-RMF',
+    attributionPrefix: 'Flota LINCE',
     defaultMapLevel: 'L1',
     defaultRobotZoom: 20,
     defaultZoom: 6,

@@ -32,7 +32,7 @@ const StyledDiv = styled('div')(({ theme }) => ({
 
 export interface LoginCardProps extends React.PropsWithChildren<{}> {
   title: string;
-  logo: string;
+  logo?: string;
   onLoginClick?: React.MouseEventHandler;
 }
 
@@ -46,7 +46,7 @@ export const LoginCard = React.forwardRef(
         <Typography variant="h4" className={classes.title}>
           {title}
         </Typography>
-        <img src={logo} alt="" className={classes.logo} />
+        {logo ? <img src={logo} alt="LINCE" className={classes.logo} /> : null}
         <Button variant="contained" aria-label="Login" onClick={onLoginClick}>
           Login
         </Button>

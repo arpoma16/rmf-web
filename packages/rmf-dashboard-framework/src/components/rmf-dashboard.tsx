@@ -1,6 +1,7 @@
 import {
   Alert,
   AlertProps,
+  Box,
   Container,
   CssBaseline,
   Snackbar,
@@ -12,6 +13,7 @@ import React, { useTransition } from 'react';
 import { matchPath, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { BrowserRouter } from 'react-router-dom';
 
+import { getAppTitle } from '../config';
 import {
   AppController,
   AppControllerProvider,
@@ -35,6 +37,7 @@ import {
 } from '../services';
 import { AlertManager } from './alert-manager';
 import AppBar, { APP_BAR_HEIGHT } from './appbar';
+import { LlmChatPanel, LlmChatToggleButton } from './llm-chat';
 import LocalizationProvider from './locale';
 import { getDefaultTaskDefinition } from './tasks/types';
 import { DashboardThemes } from './theme';
@@ -118,6 +121,12 @@ export interface RmfDashboardProps {
    * Url to a file to be played when an alert occurs on the dashboard.
    */
   alertAudioPath?: string;
+
+  /**
+   * Shows a button on the app bar that toggles the LLM chat as a side panel, available on every
+   * tab. The chat url comes from `VITE_LLM_CHAT_URL`. Defaults to false.
+   */
+  llmChatPanel?: boolean;
 }
 
 export function RmfDashboard(props: RmfDashboardProps) {
@@ -136,6 +145,10 @@ export function RmfDashboard(props: RmfDashboardProps) {
     () => new DefaultRmfApi(apiServerUrl, trajectoryServerUrl, authenticator),
     [apiServerUrl, trajectoryServerUrl, authenticator],
   );
+
+  React.useEffect(() => {
+    document.title = getAppTitle();
+  }, []);
 
   // FIXME(koonepng): This should be fully definition in tasks resources when the dashboard actually
   // supports configuring all the fields.
@@ -226,8 +239,7 @@ export function RmfDashboard(props: RmfDashboardProps) {
               <Navigate to={baseUrl} />
             ) : (
               <LoginPage
-                title="Dashboard"
-                logo={resources.logos.header}
+                title={getAppTitle()}
                 onLoginClick={() => authenticator.login(`${window.location.origin}${baseUrl}`)}
               />
             )
@@ -304,8 +316,10 @@ function DashboardContents({
   tabs,
   baseUrl = import.meta.env.BASE_URL,
   extraAppbarItems,
+  llmChatPanel = false,
 }: DashboardContentsProps) {
   const location = useLocation();
+  const [llmChatOpen, setLlmChatOpen] = React.useState(false);
   const currentTab = tabs.find((t) => matchPath(`${baseUrl}${t.route}`, location.pathname));
 
   const [pendingTransition, startTransition] = useTransition();
@@ -342,9 +356,28 @@ function DashboardContents({
                 themes={themes}
                 helpLink={helpLink}
                 reportIssueLink={reportIssueLink}
-                extraToolbarItems={extraAppbarItems}
+                extraToolbarItems={
+                  <>
+                    {llmChatPanel && (
+                      <LlmChatToggleButton
+                        open={llmChatOpen}
+                        onClick={() => setLlmChatOpen((prev) => !prev)}
+                      />
+                    )}
+                    {extraAppbarItems}
+                  </>
+                }
               />
-              {!pendingTransition && <Outlet />}
+              {llmChatPanel ? (
+                <Box display="flex" alignItems="flex-start">
+                  <Box flex={1} minWidth={0}>
+                    {!pendingTransition && <Outlet />}
+                  </Box>
+                  <LlmChatPanel open={llmChatOpen} top={APP_BAR_HEIGHT} />
+                </Box>
+              ) : (
+                !pendingTransition && <Outlet />
+              )}
             </>
           }
         >
