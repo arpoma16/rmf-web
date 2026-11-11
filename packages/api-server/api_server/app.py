@@ -93,6 +93,7 @@ async def lifespan(_app: FastIO):
     await stack.enter_async_context(ros.get_ros_node)
     await stack.enter_async_context(gateway.get_rmf_gateway)
     await stack.enter_async_context(get_tasks_service)
+    await stack.enter_async_context(routes.robot_sensors.get_sensor_cache)
 
     prev_sigint = None
     prev_sigterm = None
@@ -227,6 +228,9 @@ app.include_router(
     routes.fleets_router, prefix="/fleets", dependencies=[Depends(user_dep)]
 )
 app.include_router(routes.rios_router, prefix="/rios", dependencies=[Depends(user_dep)])
+app.include_router(
+    routes.robot_sensors_router, prefix="/robots", dependencies=[Depends(user_dep)]
+)
 app.include_router(
     routes.admin_router, prefix="/admin", dependencies=[Depends(user_dep)]
 )
