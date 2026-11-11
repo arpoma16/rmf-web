@@ -7,4 +7,9 @@ describe('micro-apps', () => {
     expect(microApps.llmChatApp.appId).toBe('llm-chat');
     expect(microApps.llmChatApp.displayName).toBe('Chat LLM');
   });
+
+  it('registers the robot monitor micro-app', () => {
+    expect(microApps.robotMonitorApp.appId).toBe('robot-monitor');
+    expect(microApps.robotMonitorApp.displayName).toBe('Monitor de robots');
+  });
 });

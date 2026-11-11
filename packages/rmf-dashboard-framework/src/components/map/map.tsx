@@ -361,6 +361,15 @@ export const Map = styled((props: MapProps) => {
     return () => sub.unsubscribe();
   }, []);
 
+  // robot being watched (e.g. from the robot monitor): highlighted until another one, or null
+  const [watchedRobotId, setWatchedRobotId] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const sub = AppEvents.robotSelect.subscribe((data) =>
+      setWatchedRobotId(data ? getRobotId(data[0], data[1]) : null),
+    );
+    return () => sub.unsubscribe();
+  }, []);
+
   // zoom to robot on select
   React.useEffect(() => {
     const subs: Subscription[] = [];
@@ -688,6 +697,7 @@ export const Map = styled((props: MapProps) => {
                     setSelectedRobot(robot);
                   }}
                   robotLabel={!disabledLayers['Robots labels']}
+                  selected={robotId === watchedRobotId}
                 />
               );
             }

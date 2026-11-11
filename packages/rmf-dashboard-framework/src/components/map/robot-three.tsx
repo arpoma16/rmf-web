@@ -10,9 +10,16 @@ interface RobotThreeProps {
   robotLocation: [number, number, number];
   onRobotClick?: (ev: ThreeEvent<MouseEvent>, robot: RobotData) => void;
   robotLabel: boolean;
+  selected?: boolean;
 }
 
-export const RobotThree = ({ robot, robotLocation, onRobotClick, robotLabel }: RobotThreeProps) => {
+export const RobotThree = ({
+  robot,
+  robotLocation,
+  onRobotClick,
+  robotLabel,
+  selected,
+}: RobotThreeProps) => {
   const STANDAR_Z_POSITION = 5;
   const CIRCLE_SEGMENT = 64;
 
@@ -32,6 +39,7 @@ export const RobotThree = ({ robot, robotLocation, onRobotClick, robotLabel }: R
         circleSegment={CIRCLE_SEGMENT}
         fontPath={robotoFont}
         robotLabel={robotLabel}
+        selected={selected}
       />
     </React.Fragment>
   );

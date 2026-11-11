@@ -3,6 +3,7 @@ export * from './color-manager';
 export * from './keycloak';
 export * from './permissions';
 export * from './rmf-api';
+export * from './robot-sensors';
 export * from './robot-trajectory-manager';
 export * from './settings';
 export * from './stub-authenticator';

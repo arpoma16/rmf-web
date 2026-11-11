@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getAppSubtitle, getAppTitle, getLlmChatUrl } from './config';
+import { getAppSubtitle, getAppTitle, getLlmChatUrl, getWebVideoUrl } from './config';
 
 describe('app config', () => {
   afterEach(() => {
@@ -23,5 +23,15 @@ describe('app config', () => {
     expect(getAppTitle()).toBe('Otra flota');
     expect(getAppSubtitle()).toBe('Otro subtítulo');
     expect(getLlmChatUrl()).toBe('http://gcs:9999/chat');
+  });
+
+  it('serves the robot video from the host of the dashboard, port 8080, by default', () => {
+    vi.stubEnv('VITE_WEB_VIDEO_URL', '');
+    expect(getWebVideoUrl()).toBe(`http://${window.location.hostname}:8080`);
+  });
+
+  it('reads the video server url from the env', () => {
+    vi.stubEnv('VITE_WEB_VIDEO_URL', 'http://video:9000');
+    expect(getWebVideoUrl()).toBe('http://video:9000');
   });
 });

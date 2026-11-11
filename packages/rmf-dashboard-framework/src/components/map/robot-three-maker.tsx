@@ -27,7 +27,45 @@ interface RobotThreeMakerProps {
   circleSegment: number;
   fontPath?: string;
   robotLabel: boolean;
+  /** Persistent highlight (ring + label) of the robot that is being watched. */
+  selected?: boolean;
 }
+
+const SELECTED_RING_INNER = 1.0;
+const SELECTED_RING_OUTER = 1.3;
+const SELECTED_COLOR = '#F5A524';
+
+/** Ring around the robot and its name, drawn above the robot so it is not hidden by it. */
+export const SelectedRobotMark = ({
+  position,
+  name,
+  fontPath,
+  showLabel,
+}: {
+  position: Vector3;
+  name: string;
+  fontPath?: string;
+  showLabel: boolean;
+}) => (
+  <group name="selected-robot-mark">
+    <mesh position={[position.x, position.y, position.z + 0.5]}>
+      <ringGeometry args={[SELECTED_RING_INNER, SELECTED_RING_OUTER, 48]} />
+      <meshBasicMaterial color={SELECTED_COLOR} toneMapped={false} />
+    </mesh>
+    {showLabel && fontPath && (
+      <Text
+        color={SELECTED_COLOR}
+        outlineWidth={0.05}
+        outlineColor="black"
+        font={fontPath}
+        fontSize={0.6}
+        position={[position.x, position.y + SELECTED_RING_OUTER + 0.5, position.z + 0.5]}
+      >
+        {name}
+      </Text>
+    )}
+  </group>
+);
 
 interface RobotImageMakerProps extends MeshProps {
   imageUrl: string;
@@ -88,6 +126,7 @@ export const RobotThreeMaker = ({
   circleSegment,
   fontPath,
   robotLabel,
+  selected = false,
 }: RobotThreeMakerProps): JSX.Element => {
   const [isHovered, setIsHovered] = React.useState(false);
 
@@ -103,6 +142,15 @@ export const RobotThreeMaker = ({
 
   return (
     <>
+      {selected && (
+        <SelectedRobotMark
+          position={position}
+          name={robot.name}
+          fontPath={fontPath}
+          // the normal label already shows the name when that layer is on
+          showLabel={!robotLabel}
+        />
+      )}
       {isHovered && (
         <mesh position={position} scale={[0.5, 0.5, 0.5]}>
           <Html zIndexRange={[1]}>

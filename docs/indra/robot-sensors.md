@@ -67,6 +67,8 @@ nobody publishes (not launched, or the ROS graph is still being discovered). `/c
 
 ## Live video for the dashboard
 
+The dashboard consumer of these routes and of the video is the "Monitor de robots" micro-app: `docs/indra/robot-monitor.md`.
+
 Not served here. `web_video_server` (`ros2 run web_video_server web_video_server`, started by the `video` pane of
 `run_rmf.yml`, port 8080 published by the compose) streams a raw image topic as MJPEG:
 

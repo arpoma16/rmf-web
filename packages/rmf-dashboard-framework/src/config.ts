@@ -16,3 +16,15 @@ export const getAppSubtitle = () =>
 
 export const getLlmChatUrl = () =>
   fromEnv(import.meta.env.VITE_LLM_CHAT_URL, DEFAULT_LLM_CHAT_URL);
+
+const WEB_VIDEO_PORT = 8080;
+
+/**
+ * Base URL of `web_video_server` (robot camera streams). `0.0.0.0` is where the server listens,
+ * not an address for a browser, so by default use the host the dashboard was opened from.
+ */
+export const getWebVideoUrl = () =>
+  fromEnv(
+    import.meta.env.VITE_WEB_VIDEO_URL,
+    `${window.location.protocol}//${window.location.hostname}:${WEB_VIDEO_PORT}`,
+  );

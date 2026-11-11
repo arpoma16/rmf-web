@@ -17,6 +17,7 @@ import {
   doorsApp,
   liftsApp,
   llmChatApp,
+  robotMonitorApp,
   robotMutexGroupsApp,
   robotsApp,
   tasksApp,
@@ -37,6 +38,7 @@ const appRegistry: MicroAppManifest[] = [
   doorsApp,
   liftsApp,
   robotsApp,
+  robotMonitorApp,
   robotMutexGroupsApp,
   tasksApp,
   llmChatApp,
@@ -44,9 +46,10 @@ const appRegistry: MicroAppManifest[] = [
 
 const homeWorkspace: InitialWindow[] = [
   {
-    layout: { x: 0, y: 0, w: 12, h: 6 },
+    layout: { x: 0, y: 0, w: 8, h: 6 },
     microApp: mapApp,
   },
+  { layout: { x: 8, y: 0, w: 4, h: 6 }, microApp: robotMonitorApp },
 ];
 
 const robotsWorkspace: InitialWindow[] = [
@@ -55,6 +58,7 @@ const robotsWorkspace: InitialWindow[] = [
     microApp: robotsApp,
   },
   { layout: { x: 8, y: 0, w: 5, h: 8 }, microApp: mapApp },
+  { layout: { x: 0, y: 4, w: 7, h: 6 }, microApp: robotMonitorApp },
   { layout: { x: 0, y: 0, w: 7, h: 4 }, microApp: doorsApp },
   { layout: { x: 0, y: 0, w: 7, h: 4 }, microApp: liftsApp },
   { layout: { x: 8, y: 0, w: 5, h: 4 }, microApp: robotMutexGroupsApp },

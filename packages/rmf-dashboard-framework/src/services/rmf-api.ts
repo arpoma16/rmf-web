@@ -37,6 +37,8 @@ import { Authenticator } from './authenticator';
 import { DefaultTrajectoryManager, RobotTrajectoryManager } from './robot-trajectory-manager';
 
 export interface RmfApi {
+  /** Base URL of the api-server. Needed by hand-written clients of routes the OpenAPI client lacks. */
+  readonly apiServerUrl?: string;
   beaconsApi: BeaconsApi;
   buildingApi: BuildingApi;
   defaultApi: DefaultApi;
@@ -87,7 +89,7 @@ export class DefaultRmfApi implements RmfApi {
   trajectoryManager?: RobotTrajectoryManager;
 
   constructor(
-    private apiServerUrl: string,
+    readonly apiServerUrl: string,
     trajectoryServerUrl: string,
     private authenticator: Authenticator,
   ) {
