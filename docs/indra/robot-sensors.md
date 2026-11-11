@@ -27,13 +27,14 @@ with the same `user_dep` as every other route).
   PNG gray levels: free 254, unknown 205, occupied 0. Pixel `(col, row)` is the cell
   `(col, height - 1 - row)`; cell `(0, 0)` is at `origin`.
 
-## Which topics: the `sensors` block of the fleet config
+## Which topics: the `sensors` block of the fleet
 
-No topic is written in this code. What the robots of a fleet publish is declared once, in the fleet config
-(`indra_fleet_adapter/config/bcr_bot_config.yaml`, next to the other things all the robots of a fleet share):
+No topic is written in this code. What the robots of a fleet publish is declared once, per fleet, in
+`indra/config/fleet_sensors.yaml` (a map `{fleet name: sensors block}`). It is the single source: the launch files of
+`indra` also derive from it what the robot is spawned with, so what is declared is what is launched:
 
 ```yaml
-sensors:
+bcr_bot:
   cameras:
     - {name: front, topic: front_camera/image_raw, kind: raw}   # kind: raw | compressed
   lidar_2d: scan
@@ -45,13 +46,17 @@ sensors:
   `..` is refused, so a topic cannot leave the namespace.
 - Every key is optional and **what is not declared is not offered**: a fleet with no block (a TinyRobot) has no camera,
   no lidar and no map, and its `/lidar` or `/map` answer `404` ("does not declare").
-- The adapter and the fleet manager ignore the block. The api-server reads it at startup through
-  `indra/config/rmf_api_server_config.py` into `AppConfig.fleet_sensors` (`INDRA_FLEET_CONFIGS` points to other files).
-  A mistake in the block **stops the server when it starts**, saying where it is. With no block anywhere (`None`), the
-  bcr_bot defaults apply (`LEGACY_SENSORS`), so nothing breaks.
-- It must match what the robot is launched with (`front_camera_enabled`, `stereo_camera_enabled`,
-  `two_d_lidar_enabled`... in `bcr_bot_gz_spawn.launch.py`). The first simulation of 2026-11-11 had a stereo pair and the
-  next one a front camera, so this is exactly what changes.
+- The adapter and the fleet manager ignore the block. The api-server reads the whole file at startup through
+  `indra/config/rmf_api_server_config.py` into `AppConfig.fleet_sensors` (`INDRA_FLEET_SENSORS` points to another
+  `fleet_sensors.yaml`; a file asked for that way must exist). A mistake in the block **stops the server when it
+  starts**, saying where it is. With no file or an empty one (`None`), the bcr_bot defaults apply (`LEGACY_SENSORS`), so
+  nothing breaks.
+- It matches what the robot is launched with because `indra` derives the `*_enabled` arguments of
+  `bcr_bot_gz_spawn.launch.py` from this same block (`front` -> `front_camera_enabled`, `stereo_left` + `stereo_right`
+  -> `stereo_camera_enabled`, `lidar_2d` -> `two_d_lidar_enabled`; the kinect depth camera is always on and not listed).
+  A camera no flag can enable (say `rear`) makes the launch fail at startup. The mapping is by name: it does not check
+  that the declared topic is the one published, which is what `declared_but_missing` below shows. Details and limits:
+  `indra/docs/RMF.md` section 2.1.
 
 `/robots/capabilities` returns what is declared **and** published right now: `cameras` (with their topic, which is what
 a video server needs) holds only the ones with a publisher, and `declared_but_missing` names the declared sensors
@@ -123,5 +128,5 @@ map as a 21 KB PNG, for `bcr_bot_1` and `bcr_bot_3`.
 - The running api-server only has these routes after a restart; nothing here reloads it.
 - The namespace of a robot is assumed to be its name (true for the bcr_bot). A fleet whose robots have another
   namespace would need it in the block.
-- The block is read once, when the api-server starts: changing the fleet config needs a restart.
+- The block is read once, when the api-server starts: changing `fleet_sensors.yaml` needs a restart (and a relaunch of the robots, which are spawned from it).
 - Pylint and Pyright (`pnpm run lint`) were not run; `black` and `isort` were.
