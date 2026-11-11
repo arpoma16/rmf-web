@@ -16,6 +16,7 @@ without ROS (and without the RMF message packages).
 import array
 import asyncio
 import math
+import re
 import struct
 import threading
 import time
@@ -136,6 +137,10 @@ class SensorCache:
         with self._lock:
             return sorted(self._entries)
 
+    def has_publisher(self, topic: str) -> bool:
+        """Whether something publishes `topic` right now (what a robot really offers)."""
+        return self._node.count_publishers(topic) > 0
+
     def close(self) -> None:
         """Drops every subscription and the purge timer. Called when the app shuts down."""
         with self._lock:
@@ -144,6 +149,132 @@ class SensorCache:
         for entry in dropped:
             self._node.destroy_subscription(entry.subscription)
         self._node.destroy_timer(self._timer)
+
+
+# ---------------------------------------------------------------------------
+# What a fleet publishes (declared in its configuration)
+# ---------------------------------------------------------------------------
+
+CAMERA_KINDS = ("raw", "compressed")  # sensor_msgs/Image, sensor_msgs/CompressedImage
+
+
+@dataclass(frozen=True)
+class CameraSpec:
+    name: str
+    topic: str  # relative to the namespace of the robot, which is its name
+    kind: str
+
+
+@dataclass(frozen=True)
+class FleetSensors:
+    """The topics every robot of a fleet publishes, relative to the namespace of the robot."""
+
+    cameras: tuple[CameraSpec, ...] = ()
+    lidar_2d: str | None = None
+    lift_state: str | None = None
+    map: str | None = None
+
+
+# What a bcr_bot was assumed to have before it was declared anywhere. Used only when the
+# api-server is given no sensor configuration at all (`AppConfig.fleet_sensors` is None).
+LEGACY_SENSORS = FleetSensors(
+    cameras=(
+        CameraSpec("front", "front_camera/image_raw", "raw"),
+        CameraSpec(
+            "stereo_right", "stereo_camera/right/image_raw/compressed", "compressed"
+        ),
+        CameraSpec(
+            "stereo_left", "stereo_camera/left/image_raw/compressed", "compressed"
+        ),
+    ),
+    lidar_2d="scan",
+    lift_state="lift_state",
+    map="map",
+)
+
+_SENSOR_NAME = re.compile(r"^[A-Za-z0-9_]+$")
+# Relative on purpose: no leading slash and no `..`, so a topic cannot leave the namespace of
+# the robot it is asked for.
+_RELATIVE_TOPIC = re.compile(r"^[A-Za-z0-9_]+(/[A-Za-z0-9_]+)*$")
+
+
+def _topic(value: Any, where: str) -> str:
+    if not isinstance(value, str) or not _RELATIVE_TOPIC.match(value):
+        raise ValueError(
+            f"{where}: expected a topic relative to the robot namespace "
+            f"(like 'scan' or 'front_camera/image_raw', no leading '/'), got {value!r}"
+        )
+    return value
+
+
+def parse_fleet_sensors(raw: Any, where: str = "sensors") -> FleetSensors:
+    """
+    Validates the `sensors` block of a fleet configuration:
+
+        sensors:
+          cameras:
+            - {name: front, topic: front_camera/image_raw, kind: raw}
+          lidar_2d: scan
+          lift_state: lift_state
+          map: map
+
+    Every key is optional: what is not declared is not offered. Raises ValueError with the
+    place of the mistake, so a wrong configuration stops the api-server when it starts, not
+    at the first request.
+    """
+    if not isinstance(raw, dict):
+        raise ValueError(f"{where}: expected a mapping, got {type(raw).__name__}")
+    unknown = set(raw) - {"cameras", "lidar_2d", "lift_state", "map"}
+    if unknown:
+        raise ValueError(f"{where}: unknown keys {sorted(unknown)}")
+    cameras = []
+    for index, entry in enumerate(raw.get("cameras") or []):
+        place = f"{where}.cameras[{index}]"
+        if not isinstance(entry, dict) or set(entry) != {"name", "topic", "kind"}:
+            raise ValueError(f"{place}: expected exactly name, topic and kind")
+        if not isinstance(entry["name"], str) or not _SENSOR_NAME.match(entry["name"]):
+            raise ValueError(f"{place}.name: expected letters, digits and '_'")
+        if entry["kind"] not in CAMERA_KINDS:
+            raise ValueError(f"{place}.kind: expected one of {CAMERA_KINDS}")
+        cameras.append(
+            CameraSpec(
+                entry["name"], _topic(entry["topic"], f"{place}.topic"), entry["kind"]
+            )
+        )
+    names = [camera.name for camera in cameras]
+    if len(set(names)) != len(names):
+        raise ValueError(f"{where}.cameras: duplicate names in {names}")
+    singles = {}
+    for key in ("lidar_2d", "lift_state", "map"):
+        value = raw.get(key)
+        singles[key] = None if value is None else _topic(value, f"{where}.{key}")
+    return FleetSensors(cameras=tuple(cameras), **singles)
+
+
+def parse_fleet_sensors_config(raw: Any) -> "dict[str, FleetSensors] | None":
+    """`{fleet name: sensors block}` as the api-server configuration gives it; None stays None."""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ValueError(f"fleet_sensors: expected a mapping, got {type(raw).__name__}")
+    return {
+        str(fleet): parse_fleet_sensors(block, f"fleet_sensors[{fleet}]")
+        for fleet, block in raw.items()
+    }
+
+
+def sensors_of(
+    fleet_sensors: "dict[str, FleetSensors] | None", fleet_name: str
+) -> FleetSensors:
+    """What `fleet_name` publishes: LEGACY_SENSORS when nothing is configured, else only what
+    its configuration declares (a fleet without a block offers nothing)."""
+    if fleet_sensors is None:
+        return LEGACY_SENSORS
+    return fleet_sensors.get(fleet_name, FleetSensors())
+
+
+def topic_of(robot: str, relative: str) -> str:
+    return f"/{robot}/{relative}"
 
 
 # ---------------------------------------------------------------------------
@@ -222,20 +353,74 @@ def _png_chunk(tag: bytes, data: bytes) -> bytes:
     )
 
 
+def encode_png(
+    width: int,
+    height: int,
+    pixels: bytes,
+    channels: int = 1,
+    flip_vertical: bool = False,
+    level: int = 6,
+) -> bytes:
+    """
+    8-bit PNG (1 channel: grayscale, 3: RGB) from `width * height * channels` bytes,
+    row-major from the first row.
+    """
+    if channels not in (1, 3):
+        raise ValueError(f"unsupported channel count: {channels}")
+    stride = width * channels
+    if len(pixels) != stride * height:
+        raise ValueError(f"expected {stride * height} bytes, got {len(pixels)}")
+    rows = range(height - 1, -1, -1) if flip_vertical else range(height)
+    raw = b"".join(b"\x00" + pixels[y * stride : (y + 1) * stride] for y in rows)
+    color_type = 0 if channels == 1 else 2
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + _png_chunk(
+            b"IHDR", struct.pack(">IIBBBBB", width, height, 8, color_type, 0, 0, 0)
+        )
+        + _png_chunk(b"IDAT", zlib.compress(raw, level))
+        + _png_chunk(b"IEND", b"")
+    )
+
+
 def encode_png_gray(
     width: int, height: int, pixels: bytes, flip_vertical: bool = False
 ) -> bytes:
     """8-bit grayscale PNG from `width * height` bytes, row-major from the first row."""
-    if len(pixels) != width * height:
-        raise ValueError(f"expected {width * height} pixels, got {len(pixels)}")
-    rows = range(height - 1, -1, -1) if flip_vertical else range(height)
-    raw = b"".join(b"\x00" + pixels[y * width : (y + 1) * width] for y in rows)
-    return (
-        b"\x89PNG\r\n\x1a\n"
-        + _png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0))
-        + _png_chunk(b"IDAT", zlib.compress(raw, 6))
-        + _png_chunk(b"IEND", b"")
-    )
+    return encode_png(width, height, pixels, 1, flip_vertical)
+
+
+class UnsupportedImageEncoding(ValueError):
+    """A raw image whose encoding cannot be turned into a PNG here."""
+
+
+_IMAGE_CHANNELS = {"rgb8": 3, "bgr8": 3, "mono8": 1}
+
+
+def image_to_png(msg: Any) -> bytes:
+    """
+    PNG of a raw `sensor_msgs/Image` (rgb8, bgr8 or mono8). The camera of the simulation
+    publishes raw frames, and the standard library has no JPEG encoder: a PNG keeps this
+    module free of Pillow and numpy.
+    """
+    channels = _IMAGE_CHANNELS.get(msg.encoding)
+    if channels is None:
+        raise UnsupportedImageEncoding(msg.encoding)
+    width, height, step = int(msg.width), int(msg.height), int(msg.step)
+    row_bytes = width * channels
+    data = bytes(msg.data)
+    if step < row_bytes or len(data) < step * height:
+        raise ValueError("image data is shorter than its width, height and step say")
+    rows = []
+    for y in range(height):
+        row = data[y * step : y * step + row_bytes]
+        if msg.encoding == "bgr8":
+            swapped = bytearray(row)
+            swapped[0::3] = row[2::3]
+            swapped[2::3] = row[0::3]
+            row = bytes(swapped)
+        rows.append(row)
+    return encode_png(width, height, b"".join(rows), channels, level=3)
 
 
 def occupancy_to_png(msg: Any) -> bytes:

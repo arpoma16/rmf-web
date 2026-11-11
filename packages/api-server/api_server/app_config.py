@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from importlib.abc import Loader
 from typing import Any, cast
 
+from api_server.sensors import parse_fleet_sensors_config
+
 
 @dataclass
 class AppConfig:
@@ -24,9 +26,13 @@ class AppConfig:
     ros_args: list[str]
     timezone: str
     preferred_username_claim_namespace: str | None = None
+    # `{fleet name: sensors block}`: the topics each fleet publishes (see
+    # `sensors.parse_fleet_sensors`). None means "not configured": the bcr_bot defaults apply.
+    fleet_sensors: Any = None
 
     def __post_init__(self):
         self.public_url = urllib.parse.urlparse(cast(str, self.public_url))
+        self.fleet_sensors = parse_fleet_sensors_config(self.fleet_sensors)
 
 
 def load_config(config_file: str) -> AppConfig:
