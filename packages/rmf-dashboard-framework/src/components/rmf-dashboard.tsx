@@ -54,7 +54,7 @@ export interface AllowedTask {
   /**
    * The task definition to configure.
    */
-  taskDefinitionId: 'patrol' | 'delivery' | 'compose-clean' | 'custom_compose';
+  taskDefinitionId: 'patrol' | 'delivery' | 'compose-clean' | 'custom_compose' | 'transport';
 
   /**
    * Configure the display name for the task definition.

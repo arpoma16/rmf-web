@@ -88,6 +88,12 @@ import {
   PatrolTaskDescription,
   PatrolTaskForm,
 } from './types/patrol';
+import {
+  makeTransportTaskBookingLabel,
+  TransportTaskDefinition,
+  TransportTaskDescription,
+  TransportTaskForm,
+} from './types/transport';
 import { getDefaultTaskDescription, getTaskRequestCategory } from './types/utils';
 import { createTaskPriority, parseTaskPriority } from './utils';
 
@@ -103,7 +109,8 @@ export type TaskDescription =
   | DeliveryCustomTaskDescription
   | PatrolTaskDescription
   | DeliveryTaskDescription
-  | ComposeCleanTaskDescription;
+  | ComposeCleanTaskDescription
+  | TransportTaskDescription;
 
 const classes = {
   title: 'dialogue-info-value',
@@ -545,6 +552,17 @@ export function TaskForm({
             onValidate={onValidate}
           />
         );
+      case TransportTaskDefinition.taskDefinitionId:
+        return (
+          <TransportTaskForm
+            taskDesc={currentTaskRequest.description as TransportTaskDescription}
+            patrolWaypoints={patrolWaypoints}
+            onChange={(desc: TransportTaskDescription) =>
+              handleTaskDescriptionChange(TransportTaskDefinition.requestCategory, desc)
+            }
+            onValidate={onValidate}
+          />
+        );
       case DeliveryPickupTaskDefinition.taskDefinitionId:
         return (
           <DeliveryPickupTaskForm
@@ -675,6 +693,9 @@ export function TaskForm({
           break;
         case CustomComposeTaskDefinition.taskDefinitionId:
           requestBookingLabel = makeCustomComposeTaskBookingLabel();
+          break;
+        case TransportTaskDefinition.taskDefinitionId:
+          requestBookingLabel = makeTransportTaskBookingLabel(request.description);
           break;
       }
 

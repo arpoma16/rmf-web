@@ -33,6 +33,11 @@ import {
   makePatrolTaskShortDescription,
   PatrolTaskDefinition,
 } from './patrol';
+import {
+  makeDefaultTransportTaskDescription,
+  makeTransportTaskShortDescription,
+  TransportTaskDefinition,
+} from './transport';
 
 export function isNonEmptyString(value: string): boolean {
   return value.length > 0;
@@ -86,6 +91,8 @@ export function getShortDescription(
       return makeDeliveryCustomTaskShortDescription(taskRequest.description, taskDisplayName);
     case CustomComposeTaskDefinition.taskDefinitionId:
       return makeCustomComposeTaskShortDescription(taskRequest.description);
+    case TransportTaskDefinition.taskDefinitionId:
+      return makeTransportTaskShortDescription(taskRequest.description, taskDisplayName);
     default:
       return `[Unknown] type "${taskRequest.description.category}"`;
   }
@@ -107,6 +114,8 @@ export function getDefaultTaskDefinition(taskDefinitionId: string): TaskDefiniti
       return PatrolTaskDefinition;
     case CustomComposeTaskDefinition.taskDefinitionId:
       return CustomComposeTaskDefinition;
+    case TransportTaskDefinition.taskDefinitionId:
+      return TransportTaskDefinition;
   }
   return undefined;
 }
@@ -128,6 +137,8 @@ export function getDefaultTaskDescription(
       return makeDefaultPatrolTaskDescription();
     case CustomComposeTaskDefinition.taskDefinitionId:
       return '';
+    case TransportTaskDefinition.taskDefinitionId:
+      return makeDefaultTransportTaskDescription();
     default:
       return undefined;
   }

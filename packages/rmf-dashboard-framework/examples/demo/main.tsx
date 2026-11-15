@@ -86,6 +86,8 @@ export default function App() {
           { taskDefinitionId: 'delivery' },
           { taskDefinitionId: 'compose-clean' },
           { taskDefinitionId: 'custom_compose' },
+          // Indra: a box from a pickup station to a dropoff station, N times (compose task)
+          { taskDefinitionId: 'transport' },
         ],
         pickupZones: [],
         cartIds: [],
