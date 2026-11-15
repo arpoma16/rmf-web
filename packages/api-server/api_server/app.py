@@ -227,6 +227,9 @@ app.include_router(
 app.include_router(
     routes.fleets_router, prefix="/fleets", dependencies=[Depends(user_dep)]
 )
+app.include_router(
+    routes.indra_router, prefix="/indra", dependencies=[Depends(user_dep)]
+)
 app.include_router(routes.rios_router, prefix="/rios", dependencies=[Depends(user_dep)])
 app.include_router(
     routes.robot_sensors_router, prefix="/robots", dependencies=[Depends(user_dep)]

@@ -29,6 +29,9 @@ class AppConfig:
     # `{fleet name: sensors block}`: the topics each fleet publishes (see
     # `sensors.parse_fleet_sensors`). None means "not configured": the bcr_bot defaults apply.
     fleet_sensors: Any = None
+    # indra's destinations catalog (destinations.json, already parsed): what `POST /indra/transport`
+    # takes the station stagings from. None means "not configured": that endpoint answers 503.
+    indra_destinations: Any = None
 
     def __post_init__(self):
         self.public_url = urllib.parse.urlparse(cast(str, self.public_url))

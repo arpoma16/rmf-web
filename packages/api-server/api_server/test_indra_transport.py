@@ -1,0 +1,127 @@
+"""The transport task of the Indra factory, built from the destinations catalog (pure, no RMF)."""
+import math
+import unittest
+
+from api_server.indra_transport import MAX_REPEAT, TransportError, build_description
+
+CATALOG = {
+    "destinations": [
+        {
+            "id": "recogida_a",
+            "name": "Recogida A",
+            "kind": "pickup",
+            "cart": {"yaw_deg": 90.0, "staging": "recogida_a_staging"},
+        },
+        {
+            "id": "entrega_b",
+            "name": "Entrega B",
+            "kind": "dropoff",
+            "cart": {"yaw_deg": 270.0, "staging": "entrega_b_staging"},
+        },
+        {"id": "cargador_1", "name": "Cargador 1", "kind": "charger", "cart": None},
+    ]
+}
+
+
+def activities(description):
+    return description["phases"][0]["activity"]["description"]["activities"]
+
+
+def action(category, station):
+    return {
+        "category": "perform_action",
+        "description": {
+            "category": category,
+            "description": {"station": station},
+            "unix_millis_action_duration_estimate": 60000,
+            "use_tool_sink": False,
+        },
+    }
+
+
+class TestBuildDescription(unittest.TestCase):
+    def test_a_box_delivery_goes_to_the_staging_acts_there_and_does_the_same_at_the_drop(self):
+        description = build_description(CATALOG, "recogida_a", "entrega_b", "box", 1)
+        self.assertEqual("transport_box", description["category"])
+        self.assertEqual(
+            [
+                {"category": "go_to_place", "description": "recogida_a_staging"},
+                action("pick_box", "recogida_a"),
+                {"category": "go_to_place", "description": "entrega_b_staging"},
+                action("drop_box", "entrega_b"),
+            ],
+            activities(description),
+        )
+
+    def test_a_delivery_has_one_phase_so_it_is_one_task(self):
+        description = build_description(CATALOG, "recogida_a", "entrega_b", "box", 3)
+        self.assertEqual(1, len(description["phases"]))
+        self.assertEqual("sequence", description["phases"][0]["activity"]["category"])
+
+    def test_repeat_chains_whole_cycles_never_two_picks_in_a_row(self):
+        steps = activities(build_description(CATALOG, "recogida_a", "entrega_b", "box", 3))
+        self.assertEqual(12, len(steps))
+        kinds = [
+            s["description"]["category"] for s in steps if s["category"] == "perform_action"
+        ]
+        self.assertEqual(["pick_box", "drop_box"] * 3, kinds)
+
+    def test_a_cart_delivery_keeps_the_orientation_the_contract_asks_for(self):
+        description = build_description(CATALOG, "recogida_a", "entrega_b", "cart", 1)
+        self.assertEqual("transport_cart", description["category"])
+        steps = activities(description)
+        self.assertEqual(
+            {
+                "category": "go_to_place",
+                "description": {
+                    "waypoint": "recogida_a_staging",
+                    "orientation": math.radians(90.0),
+                },
+            },
+            steps[0],
+        )
+        self.assertEqual(action("pick_cart", "recogida_a"), steps[1])
+        self.assertAlmostEqual(
+            math.radians(270.0), steps[2]["description"]["orientation"]
+        )
+        self.assertEqual(action("drop_cart", "entrega_b"), steps[3])
+
+    def test_a_request_that_cannot_work_is_refused_with_a_code_and_a_reason(self):
+        cases = [
+            (("nowhere", "entrega_b", "box", 1), "unknown_destination"),
+            (("recogida_a", "nowhere", "box", 1), "unknown_destination"),
+            (("entrega_b", "entrega_b", "box", 1), "not_a_pickup"),
+            (("recogida_a", "recogida_a", "box", 1), "not_a_dropoff"),
+            (("cargador_1", "entrega_b", "box", 1), "not_a_pickup"),
+            (("recogida_a", "entrega_b", "pallet", 1), "invalid_load"),
+            (("recogida_a", "entrega_b", "box", 0), "invalid_repeat"),
+            (("recogida_a", "entrega_b", "box", MAX_REPEAT + 1), "invalid_repeat"),
+        ]
+        for args, code in cases:
+            with self.subTest(args=args):
+                with self.assertRaises(TransportError) as error:
+                    build_description(CATALOG, *args)
+                self.assertEqual(code, error.exception.code)
+                self.assertTrue(str(error.exception))
+
+    def test_a_pickup_without_a_staging_is_refused(self):
+        catalog = {
+            "destinations": [
+                dict(CATALOG["destinations"][0], cart=None),
+                CATALOG["destinations"][1],
+            ]
+        }
+        with self.assertRaises(TransportError) as error:
+            build_description(catalog, "recogida_a", "entrega_b", "box", 1)
+        self.assertEqual("not_a_station", error.exception.code)
+
+    def test_without_a_catalog_it_says_so(self):
+        with self.assertRaises(TransportError) as error:
+            build_description(None, "recogida_a", "entrega_b", "box", 1)
+        self.assertEqual("catalog_unavailable", error.exception.code)
+
+    def test_the_largest_repeat_is_allowed(self):
+        steps = activities(
+            build_description(CATALOG, "recogida_a", "entrega_b", "box", MAX_REPEAT)
+        )
+        self.assertEqual(4 * MAX_REPEAT, len(steps))
