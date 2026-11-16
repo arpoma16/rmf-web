@@ -40,7 +40,8 @@ La construcción es una función pura: `packages/api-server/api_server/indra_tra
 | `fleet` | `bcr_bot` | flota del robot |
 
 La respuesta es la de RMF (`state.booking.id` es el `task_id`). Se despacha con las mismas funciones que `/tasks/dispatch_task` y `/tasks/robot_task`,
-así que la tarea queda guardada igual (`requester` = el usuario, etiquetas `transport`, `load=box`, `repeat=N`, `from=<id>` y `to=<id>`). Las etiquetas viajan con el estado de cualquier tarea
+así que la tarea queda guardada igual (`requester` = el usuario, etiquetas `transport`, `load=box`, `repeat=N`, `from=<id>`, `to=<id>`, `pickup=<id>` y `destination=<id>`; las dos últimas son las que lee el panel de tareas del dashboard en sus columnas
+**Pickup** y **Destination**, las mismas que escribe el formulario Transport; `from`/`to` son las que lee el MCP). Las etiquetas viajan con el estado de cualquier tarea
 (`GET /tasks`), con o sin robot: una tarea con `robot` explícito no deja la petición guardada (solo `/tasks/dispatch_task` lo hace), así que de ahí no se puede leer a dónde iba.
 
 Rechazos antes de llegar a RMF: `400 {"detail": {"error": <código>, "detail": <motivo>}}` con `unknown_destination`, `not_a_pickup`, `not_a_dropoff`,
@@ -67,13 +68,19 @@ hay una tarea de «solo recoger» a propósito: con `finishing_request: park` el
 | `load` | `box` | `box` o `cart` |
 | `fleet` | `bcr_bot` | flota del robot |
 
-Una tarea `compose` de categoría `deliver_box` (o `deliver_cart`) con 2 pasos, etiquetas `deliver`, `load=box` y `to=<id>`. Rechazos: los mismos `400` de la entrega (`unknown_destination`,
+Una tarea `compose` de categoría `deliver_box` (o `deliver_cart`) con 2 pasos, etiquetas `deliver`, `load=box`, `to=<id>` y `destination=<id>` (sin `pickup`: no recoge nada; su columna Pickup sale `n/a`). Rechazos: los mismos `400` de la entrega (`unknown_destination`,
 `not_a_dropoff`, `not_a_station`, `invalid_load`), `503 catalog_unavailable`, y **`409 robot_not_carrying`** si se SABE que el robot no lleva nada (el adapter fallaría el `drop_box` recién tras el viaje:
 «the platform is not up»); si no se sabe, sigue.
 
 **El catálogo.** Viene de `indra/config/destinations.json` (derivado de `material_points.yaml` con `indra/scripts/export_destinations.py`) y llega como el campo
 `indra_destinations` de la config del api-server (`indra/config/rmf_api_server_config.py`, igual que `fleet_sensors`). `INDRA_DESTINATIONS_FILE` usa otro archivo
 (si se pide así, debe existir). Hay que **reiniciar el api-server** para que lea un catálogo nuevo.
+
+## El panel de tareas del dashboard
+
+- **Orden.** Por defecto ordena por la columna **Date** (`unix_millis_request_time`, hora real) y no por `Start Time`. RMF corre en sim-time, que se reinicia con cada arranque, y ordenando por `Start Time` descendente las
+  tareas de la corrida actual quedaban debajo de las de las corridas anteriores, en las últimas páginas (el 2026-11-16 las del día caían en las páginas 5 a 7 de 10 por página). Pickup y Destination salen de las etiquetas `pickup=` y `destination=`.
+- **Sin arreglar:** la exportación a CSV filtra por rango de `start_time` (`getPastMonthTasks`), así que con sim-time diría «No tasks found over the past month».
 
 ## El formulario del dashboard
 

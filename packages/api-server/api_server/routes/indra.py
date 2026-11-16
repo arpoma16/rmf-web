@@ -112,12 +112,16 @@ async def post_transport(
             unix_millis_request_time=int(time.time() * 1000),
             # The labels travel with the task state (GET /tasks), so whoever lists tasks (the MCP, the
             # dashboard) can say where a delivery goes, with or without a robot (a robot task saves no request).
+            # `pickup=` and `destination=` are the ones the dashboard table reads for its Pickup and
+            # Destination columns (the Transport form writes them); `from=` and `to=` are what the MCP reads.
             labels=[
                 "transport",
                 f"load={request.load}",
                 f"repeat={request.repeat}",
                 f"from={request.from_}",
                 f"to={request.to}",
+                f"pickup={request.from_}",
+                f"destination={request.to}",
             ],
             **extra,
         )
@@ -205,7 +209,12 @@ async def post_deliver(
                 description=description,
                 requester=user.username,
                 unix_millis_request_time=int(time.time() * 1000),
-                labels=["deliver", f"load={request.load}", f"to={request.to}"],
+                labels=[
+                    "deliver",
+                    f"load={request.load}",
+                    f"to={request.to}",
+                    f"destination={request.to}",
+                ],
             ),
         ),
         task_repo,
