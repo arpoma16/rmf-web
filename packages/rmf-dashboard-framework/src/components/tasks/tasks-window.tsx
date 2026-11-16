@@ -167,7 +167,10 @@ export const TasksWindow = React.memo(
           }
         }
 
-        let orderBy: string = '-unix_millis_start_time';
+        // By request time (the "Date" column, wall clock) and not by start time: RMF runs on simulation
+        // time, which restarts with every launch, so the tasks of the current run would sink below
+        // those of the previous runs and end up on the last pages.
+        let orderBy: string = '-unix_millis_request_time';
         if (sortFields.model && sortFields.model.length >= 1) {
           orderBy =
             sortFields.model[0].sort === 'desc'
