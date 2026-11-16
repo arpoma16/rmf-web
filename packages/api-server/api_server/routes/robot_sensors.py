@@ -214,17 +214,32 @@ async def get_platform(
     """
 
     async def one(robot: KnownRobot):
-        if not _publishing(cache, robot, robot.sensors.lift_state):
-            return robot.name, {"lift_up": None}
-        topic = topic_of(robot.name, robot.sensors.lift_state)
-        try:
-            msg = await cache.get(topic, Bool, _LATCHED_QOS, timeout=1.0, max_age=None)
-        except SensorTimeout:
-            return robot.name, {"lift_up": None}
-        return robot.name, {"lift_up": bool(msg.data)}
+        return robot.name, {"lift_up": await _lift_up(cache, robot)}
 
     robots = await _known_robots(repo)
     return {"robots": dict(await asyncio.gather(*(one(robot) for robot in robots)))}
+
+
+async def _lift_up(cache: SensorCache, robot: KnownRobot) -> bool | None:
+    """True while the platform is raised, None when the fleet declares no lift, the robot does not
+    publish it or it has not reported yet."""
+    if not _publishing(cache, robot, robot.sensors.lift_state):
+        return None
+    topic = topic_of(robot.name, robot.sensors.lift_state)
+    try:
+        msg = await cache.get(topic, Bool, _LATCHED_QOS, timeout=1.0, max_age=None)
+    except SensorTimeout:
+        return None
+    return bool(msg.data)
+
+
+async def lift_up_of(repo: FleetRepository, cache: SensorCache, robot_name: str) -> bool | None:
+    """`lift_up` of ONE robot, for the routes that must know whether it carries a load. None when
+    it is not known (the robot is not in the fleet, no lift, no report): callers never block on that."""
+    for robot in await _known_robots(repo):
+        if robot.name == robot_name:
+            return await _lift_up(cache, robot)
+    return None
 
 
 @router.get(

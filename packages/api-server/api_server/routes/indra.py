@@ -16,14 +16,26 @@ from api_server import models as mdl
 from api_server.app_config import app_config
 from api_server.authenticator import user_dep
 from api_server.fast_io import FastIORouter
-from api_server.indra_transport import MAX_REPEAT, TransportError, build_description
+from api_server.indra_transport import (
+    MAX_REPEAT,
+    TransportError,
+    build_deliver_description,
+    build_description,
+)
 from api_server.logging import LoggerAdapter, get_logger
 from api_server.models import User
-from api_server.repositories import TaskRepository
+from api_server.repositories import FleetRepository, TaskRepository
 from api_server.rmf_io import RmfService, get_tasks_service
+from api_server.routes.robot_sensors import SensorCache, get_sensor_cache, lift_up_of
 from api_server.routes.tasks.tasks import post_dispatch_task, post_robot_task
 
 router = FastIORouter(tags=["Indra"])
+
+
+async def _lift_up(robot: str, repo: FleetRepository, cache: SensorCache) -> Optional[bool]:
+    """Does the robot carry a load? True while its lift platform is up (there is no load sensor yet),
+    None when that is not known: an unknown never blocks a request, only a known state does."""
+    return await lift_up_of(repo, cache, robot)
 
 
 def _catalog() -> Optional[dict]:
@@ -58,6 +70,7 @@ class TransportRequest(BaseModel):
     response_model=None,
     responses={
         400: {"description": "The request cannot become a task, or RMF refused it"},
+        409: {"description": "`robot_carrying`: the named robot already carries a load"},
         503: {"description": "The destinations catalog is not loaded"},
     },
 )
@@ -67,6 +80,8 @@ async def post_transport(
     task_repo: Annotated[TaskRepository, Depends(TaskRepository)],
     logger: Annotated[LoggerAdapter, Depends(get_logger)],
     tasks_service: Annotated[RmfService, Depends(get_tasks_service)],
+    fleet_repo: Annotated[FleetRepository, Depends(FleetRepository)],
+    sensor_cache: Annotated[SensorCache, Depends(get_sensor_cache)],
 ):
     try:
         description = build_description(
@@ -75,6 +90,19 @@ async def post_transport(
     except TransportError as error:
         status = 503 if error.code == "catalog_unavailable" else 400
         raise HTTPException(status, detail={"error": error.code, "detail": str(error)}) from error
+
+    # A task starts with a pick, and a robot that carries a load cannot pick another one: say so now
+    # and do not send it on a trip that the fleet adapter would cancel at the station. Only with a
+    # named robot (without one RMF chooses and nothing here knows which); only a KNOWN load blocks.
+    if request.robot and await _lift_up(request.robot, fleet_repo, sensor_cache) is True:
+        raise HTTPException(
+            409,
+            detail={
+                "error": "robot_carrying",
+                "detail": f"[{request.robot}] carries a load (its lift platform is up), so it cannot "
+                "pick another one: deliver what it carries first (POST /indra/deliver)",
+            },
+        )
 
     def task_request(**extra) -> mdl.TaskRequest:
         return mdl.TaskRequest(
@@ -112,5 +140,74 @@ async def post_transport(
         ),
         task_repo,
         logger,
+        tasks_service,
+    )
+
+
+class DeliverRequest(BaseModel):
+    to: str = Field(description="Id of the dropoff station (an `entrega_*` of the catalog)")
+    robot: str = Field(
+        min_length=1,
+        description="Robot that carries the load. Required: the load is on THAT robot, so RMF does not choose",
+    )
+    load: str = Field(
+        default="box", description="What the robot carries: `box` (on the lift platform) or `cart`"
+    )
+    fleet: str = Field(default="bcr_bot", description="Fleet of the robot")
+
+
+@router.post(
+    "/deliver",
+    response_model=None,
+    responses={
+        400: {"description": "The request cannot become a task, or RMF refused it"},
+        409: {"description": "`robot_not_carrying`: the robot is known to carry nothing"},
+        503: {"description": "The destinations catalog is not loaded"},
+    },
+)
+async def post_deliver(
+    request: Annotated[DeliverRequest, Body(...)],
+    user: Annotated[User, Depends(user_dep)],
+    task_repo: Annotated[TaskRepository, Depends(TaskRepository)],
+    logger: Annotated[LoggerAdapter, Depends(get_logger)],
+    tasks_service: Annotated[RmfService, Depends(get_tasks_service)],
+    fleet_repo: Annotated[FleetRepository, Depends(FleetRepository)],
+    sensor_cache: Annotated[SensorCache, Depends(get_sensor_cache)],
+):
+    """Leave at a dropoff station the load that a robot ALREADY carries: the way to put down what a
+    cancelled delivery left on its platform. One task for that robot (go to the staging of the station
+    and put the load down); nothing is picked up."""
+    try:
+        description = build_deliver_description(_catalog(), request.to, request.load)
+    except TransportError as error:
+        status = 503 if error.code == "catalog_unavailable" else 400
+        raise HTTPException(status, detail={"error": error.code, "detail": str(error)}) from error
+
+    # The fleet adapter would fail the drop ("the platform is not up") only after the whole trip.
+    if await _lift_up(request.robot, fleet_repo, sensor_cache) is False:
+        raise HTTPException(
+            409,
+            detail={
+                "error": "robot_not_carrying",
+                "detail": f"[{request.robot}] carries nothing (its lift platform is down): "
+                "there is nothing to deliver",
+            },
+        )
+
+    logger.debug("deliver %s -> %s (%s)", request.robot, request.to, request.load)
+    return await post_robot_task(
+        mdl.RobotTaskRequest(
+            type="robot_task_request",
+            robot=request.robot,
+            fleet=request.fleet,
+            request=mdl.TaskRequest(
+                category="compose",
+                description=description,
+                requester=user.username,
+                unix_millis_request_time=int(time.time() * 1000),
+                labels=["deliver", f"load={request.load}", f"to={request.to}"],
+            ),
+        ),
+        task_repo,
         tasks_service,
     )

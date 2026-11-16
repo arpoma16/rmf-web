@@ -40,11 +40,36 @@ La construcción es una función pura: `packages/api-server/api_server/indra_tra
 | `fleet` | `bcr_bot` | flota del robot |
 
 La respuesta es la de RMF (`state.booking.id` es el `task_id`). Se despacha con las mismas funciones que `/tasks/dispatch_task` y `/tasks/robot_task`,
-así que la tarea queda guardada igual (`requester` = el usuario, etiquetas `transport`, `load=box`, `repeat=N`).
+así que la tarea queda guardada igual (`requester` = el usuario, etiquetas `transport`, `load=box`, `repeat=N`, `from=<id>` y `to=<id>`). Las etiquetas viajan con el estado de cualquier tarea
+(`GET /tasks`), con o sin robot: una tarea con `robot` explícito no deja la petición guardada (solo `/tasks/dispatch_task` lo hace), así que de ahí no se puede leer a dónde iba.
 
 Rechazos antes de llegar a RMF: `400 {"detail": {"error": <código>, "detail": <motivo>}}` con `unknown_destination`, `not_a_pickup`, `not_a_dropoff`,
 `not_a_station` (sin staging), `invalid_load`, `invalid_repeat`; `503 catalog_unavailable` si el api-server no tiene el catálogo; `422` si falta `from` o `to`.
 Si RMF rechaza la tarea, sigue siendo `400` con `errors` (lo mismo que `/tasks/dispatch_task`).
+
+**Un robot que ya lleva carga no puede recoger otra:** con `robot` y la plataforma arriba (`lift_up`, todavía no hay sensor de carga) responde `409 robot_carrying` al instante, en vez de mandarlo de
+viaje y que el adapter cancele la tarea en la estación («the platform is already up»). Sin `robot` no se comprueba (RMF elige y aquí no se sabe cuál). Solo una carga CONOCIDA bloquea: si el
+estado de la plataforma no se sabe (`null`), la tarea sigue. La validación de la petición (400) va antes.
+
+## Entregar lo que el robot ya lleva: `POST /indra/deliver`
+
+Para soltar la carga que quedó en la plataforma (p. ej. tras cancelar una entrega con `force`). Es la segunda mitad de un transporte (ir al staging de la entrega y soltar) y **no recoge nada**; no
+hay una tarea de «solo recoger» a propósito: con `finishing_request: park` el robot terminaría yéndose al cargador con la carga.
+
+```json
+{"to": "entrega_almacen_materiales", "robot": "bcr_bot_1", "load": "box"}
+```
+
+| Campo | Por defecto | Qué es |
+|---|---|---|
+| `to` | — | id de una entrega del catálogo (`entrega_*`) |
+| `robot` | — | **obligatorio**: la carga está en ESE robot (`/tasks/robot_task`); vacío → `422` |
+| `load` | `box` | `box` o `cart` |
+| `fleet` | `bcr_bot` | flota del robot |
+
+Una tarea `compose` de categoría `deliver_box` (o `deliver_cart`) con 2 pasos, etiquetas `deliver`, `load=box` y `to=<id>`. Rechazos: los mismos `400` de la entrega (`unknown_destination`,
+`not_a_dropoff`, `not_a_station`, `invalid_load`), `503 catalog_unavailable`, y **`409 robot_not_carrying`** si se SABE que el robot no lleva nada (el adapter fallaría el `drop_box` recién tras el viaje:
+«the platform is not up»); si no se sabe, sigue.
 
 **El catálogo.** Viene de `indra/config/destinations.json` (derivado de `material_points.yaml` con `indra/scripts/export_destinations.py`) y llega como el campo
 `indra_destinations` de la config del api-server (`indra/config/rmf_api_server_config.py`, igual que `fleet_sensors`). `INDRA_DESTINATIONS_FILE` usa otro archivo
@@ -70,7 +95,7 @@ Para que el chat la use hay que agregarla a `allowedTools` del agente en el repo
 
 ## Verificado y no verificado
 
-Tests: `api_server.test_indra_transport` y `api_server.routes.test_indra` (api-server; la suite completa, 156, pasa), `transport.test.tsx` (dashboard) y `test/rmfTasks.test.ts` (MCP, 66).
+Tests: `api_server.test_indra_transport` y `api_server.routes.test_indra` (api-server; la suite completa, 177, pasa; incluye `/indra/deliver`, `robot_carrying` y una clase que usa la plataforma real, sin parchearla), `transport.test.tsx` (dashboard) y `test/rmfTasks.test.ts` (MCP, 66).
 
 En simulación, el 2026-11-15, con los tres a la vez sobre estaciones distintas:
 - **Endpoint** (token real): sin token `401`; destino inexistente, entrega como recogida, carga inválida, `repeat` 0 y 51 → `400` con su código; falta `to` → `422`.

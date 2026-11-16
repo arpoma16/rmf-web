@@ -82,6 +82,36 @@ def _action(category: str, station_id: str) -> dict:
     }
 
 
+def build_deliver_description(catalog: Optional[dict], dropoff: str, load: str = "box") -> dict:
+    """Leave the load the robot ALREADY carries at a dropoff station: the second half of a transport
+    (go_to_place <dropoff>_staging -> perform_action drop_*) and nothing before it. It is how a robot
+    that was left carrying something (a delivery cancelled with `force`) puts it down. There is no
+    "pick only" task on purpose: a robot that finishes one goes to its charger carrying the load.
+    Raises TransportError (with a code) if it cannot work."""
+    if not catalog:
+        raise TransportError("catalog_unavailable", "the destinations catalog is not loaded")
+    if load not in ACTIONS:
+        raise TransportError("invalid_load", f"load [{load}] is not one of {sorted(ACTIONS)}")
+    drop_station = _station(catalog, dropoff, "dropoff", "not_a_dropoff")
+    _, drop_action = ACTIONS[load]
+    return {
+        "category": f"deliver_{load}",
+        "phases": [
+            {
+                "activity": {
+                    "category": "sequence",
+                    "description": {
+                        "activities": [
+                            _go_to_staging(drop_station, load),
+                            _action(drop_action, dropoff),
+                        ]
+                    },
+                }
+            }
+        ],
+    }
+
+
 def build_description(
     catalog: Optional[dict], pickup: str, dropoff: str, load: str, repeat: int
 ) -> dict:

@@ -2,7 +2,12 @@
 import math
 import unittest
 
-from api_server.indra_transport import MAX_REPEAT, TransportError, build_description
+from api_server.indra_transport import (
+    MAX_REPEAT,
+    TransportError,
+    build_deliver_description,
+    build_description,
+)
 
 CATALOG = {
     "destinations": [
@@ -125,3 +130,67 @@ class TestBuildDescription(unittest.TestCase):
             build_description(CATALOG, "recogida_a", "entrega_b", "box", MAX_REPEAT)
         )
         self.assertEqual(4 * MAX_REPEAT, len(steps))
+
+
+class TestBuildDeliverDescription(unittest.TestCase):
+    """Leave what the robot ALREADY carries: the drop half of a transport, nothing before it."""
+
+    def test_it_goes_to_the_staging_and_puts_the_load_down_and_picks_nothing(self):
+        description = build_deliver_description(CATALOG, "entrega_b")
+        self.assertEqual("deliver_box", description["category"])
+        self.assertEqual(
+            [
+                {"category": "go_to_place", "description": "entrega_b_staging"},
+                action("drop_box", "entrega_b"),
+            ],
+            activities(description),
+        )
+        kinds = [
+            s["description"]["category"]
+            for s in activities(description)
+            if s["category"] == "perform_action"
+        ]
+        self.assertNotIn("pick_box", kinds)
+
+    def test_it_is_the_second_half_of_a_transport_step_by_step(self):
+        transport = activities(build_description(CATALOG, "recogida_a", "entrega_b", "box", 1))
+        self.assertEqual(transport[2:], activities(build_deliver_description(CATALOG, "entrega_b")))
+
+    def test_a_cart_keeps_the_orientation_of_the_station(self):
+        description = build_deliver_description(CATALOG, "entrega_b", "cart")
+        self.assertEqual("deliver_cart", description["category"])
+        first, second = activities(description)
+        self.assertEqual(
+            {"waypoint": "entrega_b_staging", "orientation": math.radians(270.0)},
+            first["description"],
+        )
+        self.assertEqual("drop_cart", second["description"]["category"])
+
+    def test_it_is_one_phase_so_it_is_one_task(self):
+        self.assertEqual(1, len(build_deliver_description(CATALOG, "entrega_b")["phases"]))
+
+    def test_only_a_dropoff_station_is_a_place_to_leave_a_load(self):
+        cases = [
+            ("nowhere", "unknown_destination"),
+            ("recogida_a", "not_a_dropoff"),
+            ("cargador_1", "not_a_dropoff"),
+        ]
+        for destination, code in cases:
+            with self.subTest(destination=destination):
+                with self.assertRaises(TransportError) as error:
+                    build_deliver_description(CATALOG, destination)
+                self.assertEqual(code, error.exception.code)
+
+    def test_a_dropoff_without_staging_is_not_a_station(self):
+        catalog = {"destinations": [{"id": "entrega_x", "kind": "dropoff", "cart": None}]}
+        with self.assertRaises(TransportError) as error:
+            build_deliver_description(catalog, "entrega_x")
+        self.assertEqual("not_a_station", error.exception.code)
+
+    def test_a_load_that_is_not_known_and_a_missing_catalog_say_so(self):
+        with self.assertRaises(TransportError) as error:
+            build_deliver_description(CATALOG, "entrega_b", "pallet")
+        self.assertEqual("invalid_load", error.exception.code)
+        with self.assertRaises(TransportError) as error:
+            build_deliver_description(None, "entrega_b")
+        self.assertEqual("catalog_unavailable", error.exception.code)
