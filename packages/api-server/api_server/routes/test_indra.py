@@ -54,6 +54,20 @@ class TestIndraTransportRoute(AppFixture):
             self.assertEqual(8, len(steps))
             self.assertIn("load=box", request["labels"])
             self.assertIn("repeat=2", request["labels"])
+            self.assertIn("from=recogida_a", request["labels"])
+            self.assertIn("to=entrega_b", request["labels"])
+
+    def test_a_robot_task_carries_the_same_labels_because_it_saves_no_request(self):
+        with patch("api_server.routes.indra._catalog", return_value=CATALOG), patch.object(
+            get_tasks_service(), "call"
+        ) as mock:
+            mock.return_value = rmf_success()
+            resp = self.post({"from": "recogida_a", "to": "entrega_b", "robot": "bcr_bot_2", "repeat": 3})
+            self.assertEqual(200, resp.status_code, resp.content)
+            labels = self.sent_to_rmf(mock)["request"]["labels"]
+            self.assertEqual(
+                ["transport", "load=box", "repeat=3", "from=recogida_a", "to=entrega_b"], labels
+            )
 
     def test_with_a_robot_the_task_goes_to_that_robot(self):
         with patch("api_server.routes.indra._catalog", return_value=CATALOG), patch.object(

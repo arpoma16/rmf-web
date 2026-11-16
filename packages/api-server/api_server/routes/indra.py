@@ -82,7 +82,15 @@ async def post_transport(
             description=description,
             requester=user.username,
             unix_millis_request_time=int(time.time() * 1000),
-            labels=["transport", f"load={request.load}", f"repeat={request.repeat}"],
+            # The labels travel with the task state (GET /tasks), so whoever lists tasks (the MCP, the
+            # dashboard) can say where a delivery goes, with or without a robot (a robot task saves no request).
+            labels=[
+                "transport",
+                f"load={request.load}",
+                f"repeat={request.repeat}",
+                f"from={request.from_}",
+                f"to={request.to}",
+            ],
             **extra,
         )
 
