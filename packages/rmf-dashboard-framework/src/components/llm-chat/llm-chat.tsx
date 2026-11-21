@@ -38,6 +38,8 @@ export const LlmChat = ({ url }: LlmChatProps) => {
         component="iframe"
         title="Chat LLM"
         src={chatUrl}
+        // Without this, a cross-origin iframe cannot use the mic (the chat's record button).
+        allow="microphone"
         onLoad={() => setStatus('loaded')}
         onError={() => setStatus('failed')}
         sx={{ flex: 1, border: 0, width: '100%', minHeight: 0 }}
