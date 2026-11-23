@@ -45,11 +45,11 @@ const appRegistry: MicroAppManifest[] = [
 ];
 
 const homeWorkspace: InitialWindow[] = [
+  { layout: { x: 0, y: 0, w: 5, h: 6 }, microApp: robotMonitorApp },
   {
-    layout: { x: 0, y: 0, w: 8, h: 6 },
+    layout: { x: 5, y: 0, w: 7, h: 6 },
     microApp: mapApp,
   },
-  { layout: { x: 8, y: 0, w: 4, h: 6 }, microApp: robotMonitorApp },
 ];
 
 const robotsWorkspace: InitialWindow[] = [
